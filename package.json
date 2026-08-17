@@ -1,0 +1,18 @@
+{
+  "name": "server-xs",
+  "version": "1.0.0",
+  "description": "Phone-to-Desktop Remote Control Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["remote-control", "phone", "desktop"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "cors": "^2.8.5"
+  }
+}
