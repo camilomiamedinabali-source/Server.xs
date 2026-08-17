@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone-to-Desktop Remote Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .qr-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .qr-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        #qrCode {
+            max-width: 300px;
+            height: auto;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f7ff;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .device-list {
+            list-style: none;
+        }
+
+        .device-item {
+            padding: 8px 0;
+            color: #555;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .device-item::before {
+            content: '●';
+            margin-right: 8px;
+            color: #667eea;
+        }
+
+        .device-item.desktop {
+            color: #2ecc71;
+        }
+
+        .device-item.desktop::before {
+            color: #2ecc71;
+        }
+
+        .device-item.phone {
+            color: #3498db;
+        }
+
+        .device-item.phone::before {
+            color: #3498db;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 15px;
+        }
+
+        .connection-url {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 10px;
+            color: #555;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            #qrCode {
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Remote Control</h1>
+            <p>Connect your phone to your desktop</p>
+        </div>
+
+        <div class="qr-section">
+            <div class="qr-container">
+                <div id="qrCode">
+                    <div class="loading"></div>
+                </div>
+            </div>
+            <p style="color: #666; font-size: 14px;">Scan with your phone to connect</p>
+        </div>
+
+        <div class="info-box">
+            💡 Point your phone camera at the QR code and tap the notification to connect instantly
+        </div>
+
+        <div class="status-section">
+            <div class="status-title">Connected Devices</div>
+            <ul class="device-list" id="deviceList">
+                <li class="device-item">Fetching status...</li>
+            </ul>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="refreshQRCode()">🔄 Refresh</button>
+            <button class="btn-secondary" onclick="refreshStatus()">📊 Status</button>
+        </div>
+
+        <div class="connection-url" id="connectionUrl"></div>
+    </div>
+
+    <script>
+        async function generateQRCode() {
+            try {
+                const response = await fetch('/api/qrcode');
+                const data = await response.json();
+
+                const qrContainer = document.getElementById('qrCode');
+                qrContainer.innerHTML = `<img src="${data.qrCode}" alt="QR Code" style="max-width: 300px; height: auto;">`;
+
+                document.getElementById('connectionUrl').textContent = `📍 ${data.connectionUrl}`;
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                document.getElementById('qrCode').innerHTML = '<p style="color: red;">Failed to generate QR code</p>';
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                const deviceList = document.getElementById('deviceList');
+                deviceList.innerHTML = '';
+
+                if (data.connectedDevices.length === 0) {
+                    deviceList.innerHTML = '<li class="device-item">No devices connected</li>';
+                } else {
+                    data.connectedDevices.forEach(device => {
+                        const li = document.createElement('li');
+                        li.className = `device-item ${device.type}`;
+                        li.textContent = `${device.type === 'desktop' ? '🖥️' : '📱'} ${device.type} - ${device.id}`;
+                        deviceList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+
+        function refreshQRCode() {
+            const qrContainer = document.getElementById('qrCode');
+            qrContainer.innerHTML = '<div class="loading"></div>';
+            generateQRCode();
+        }
+
+        // Initialize
+        generateQRCode();
+        refreshStatus();
+
+        // Auto-refresh status every 3 seconds
+        setInterval(refreshStatus, 3000);
+    </script>
+</body>
+</html>

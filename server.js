@@ -2,6 +2,8 @@ const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
 const cors = require('cors');
+const QRCode = require('qrcode');
+const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +11,7 @@ const wss = new WebSocket.Server({ server });
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
 const connectedClients = new Map();
 let desktopClient = null;
@@ -106,6 +109,70 @@ app.get('/api/status', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', uptime: process.uptime() });
+});
+
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+app.get('/api/qrcode', async (req, res) => {
+  try {
+    const port = process.env.PORT || 8080;
+    const host = getLocalIP();
+    const connectionUrl = `ws://${host}:${port}?device=phone`;
+
+    const qrCodeDataUrl = await QRCode.toDataURL(connectionUrl, {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.json({
+      qrCode: qrCodeDataUrl,
+      connectionUrl,
+      host,
+      port,
+      instructions: 'Scan this QR code with your phone to connect'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate QR code', message: error.message });
+  }
+});
+
+app.get('/api/qrcode/svg', async (req, res) => {
+  try {
+    const port = process.env.PORT || 8080;
+    const host = getLocalIP();
+    const connectionUrl = `ws://${host}:${port}?device=phone`;
+
+    const qrCodeSVG = await QRCode.toString(connectionUrl, {
+      errorCorrectionLevel: 'H',
+      type: 'image/svg+xml',
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.type('svg').send(qrCodeSVG);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate QR code', message: error.message });
+  }
 });
 
 const PORT = process.env.PORT || 8080;
