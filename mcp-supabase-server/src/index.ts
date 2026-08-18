@@ -7,8 +7,13 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
-const SUPABASE_KEY = process.env.SUPABASE_KEY || "";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("Error: SUPABASE_URL and SUPABASE_KEY environment variables are required");
+  process.exit(1);
+}
 
 interface ToolInput {
   table?: string;
@@ -128,17 +133,17 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "execute_sql",
-    description: "Execute raw SQL query against the database",
+    name: "list_columns",
+    description: "List all columns for a specific table",
     inputSchema: {
       type: "object",
       properties: {
-        query: {
+        table: {
           type: "string",
-          description: "SQL query to execute",
+          description: "The table name",
         },
       },
-      required: ["query"],
+      required: ["table"],
     },
   },
   {
@@ -186,15 +191,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "list_tables": {
-        const { data, error } = await supabase
-          .from("information_schema.tables")
-          .select("table_name, table_schema")
-          .eq("table_schema", "public");
-
-        if (error) throw error;
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        try {
+          const { data, error } = await supabase.rpc("get_tables");
+          if (error) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "To list tables, create this SQL function in your Supabase project:\n\nCREATE OR REPLACE FUNCTION get_tables() RETURNS TABLE(table_name text) AS $$\n  SELECT t.table_name\n  FROM information_schema.tables t\n  WHERE t.table_schema = 'public'\n  ORDER BY t.table_name;\n$$ LANGUAGE SQL;\n\nOr manually query your database schema.",
+                },
+              ],
+            };
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Create a get_tables() function in Supabase to list tables, or query your database directly.",
+              },
+            ],
+          };
+        }
       }
 
       case "query_table": {
@@ -270,28 +291,64 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "execute_sql": {
-        const { data, error } = await supabase.rpc("execute_sql", {
-          query: input.query,
-        });
-
-        if (error) throw error;
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+      case "list_columns": {
+        try {
+          const { data, error } = await supabase.rpc("get_columns", {
+            table_name: input.table!,
+          });
+          if (error) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Create a get_columns() function:\n\nCREATE OR REPLACE FUNCTION get_columns(table_name text) RETURNS TABLE(column_name text, data_type text, is_nullable boolean) AS $$\n  SELECT c.column_name, c.data_type, c.is_nullable::boolean\n  FROM information_schema.columns c\n  WHERE c.table_name = $1 AND c.table_schema = 'public';\n$$ LANGUAGE SQL;`,
+                },
+              ],
+            };
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Create a get_columns() function in your Supabase project to list table columns.",
+              },
+            ],
+          };
+        }
       }
 
       case "get_table_schema": {
-        const { data, error } = await supabase
-          .from("information_schema.columns")
-          .select("column_name, data_type, is_nullable, column_default")
-          .eq("table_name", input.table!)
-          .eq("table_schema", "public");
-
-        if (error) throw error;
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        try {
+          const { data, error } = await supabase.rpc("get_table_schema", {
+            table_name: input.table!,
+          });
+          if (error) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Create a get_table_schema() function:\n\nCREATE OR REPLACE FUNCTION get_table_schema(table_name text)\nRETURNS TABLE(column_name text, data_type text, is_nullable boolean, column_default text) AS $$\n  SELECT c.column_name, c.data_type, c.is_nullable::boolean, c.column_default\n  FROM information_schema.columns c\n  WHERE c.table_name = $1 AND c.table_schema = 'public'\n  ORDER BY c.ordinal_position;\n$$ LANGUAGE SQL;`,
+                },
+              ],
+            };
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Create a get_table_schema() function in your Supabase project for schema introspection.",
+              },
+            ],
+          };
+        }
       }
 
       case "count_records": {
