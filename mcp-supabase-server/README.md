@@ -30,7 +30,40 @@ npm run build
 
 ### Configuration
 
-Set environment variables:
+**1. Create Required SQL Functions**
+
+Run these SQL queries in your Supabase SQL Editor to create helper functions:
+
+```sql
+-- Function to list all tables
+CREATE OR REPLACE FUNCTION get_tables()
+RETURNS TABLE(table_name text) AS $$
+  SELECT t.table_name
+  FROM information_schema.tables t
+  WHERE t.table_schema = 'public'
+  ORDER BY t.table_name;
+$$ LANGUAGE SQL;
+
+-- Function to list columns in a table
+CREATE OR REPLACE FUNCTION get_columns(table_name text)
+RETURNS TABLE(column_name text, data_type text, is_nullable boolean) AS $$
+  SELECT c.column_name, c.data_type, c.is_nullable::boolean
+  FROM information_schema.columns c
+  WHERE c.table_name = $1 AND c.table_schema = 'public'
+  ORDER BY c.ordinal_position;
+$$ LANGUAGE SQL;
+
+-- Function to get detailed table schema
+CREATE OR REPLACE FUNCTION get_table_schema(table_name text)
+RETURNS TABLE(column_name text, data_type text, is_nullable boolean, column_default text) AS $$
+  SELECT c.column_name, c.data_type, c.is_nullable::boolean, c.column_default
+  FROM information_schema.columns c
+  WHERE c.table_name = $1 AND c.table_schema = 'public'
+  ORDER BY c.ordinal_position;
+$$ LANGUAGE SQL;
+```
+
+**2. Set Environment Variables**
 
 ```bash
 export SUPABASE_URL="https://your-project.supabase.co"
@@ -81,7 +114,13 @@ claude /mcp
 ## Tool Reference
 
 ### list_tables
-Lists all tables in the public schema with their names.
+Lists all tables in the public schema. Requires `get_tables()` SQL function (see Setup).
+
+### list_columns
+Lists columns for a specific table with data types and nullability. Requires `get_columns()` SQL function.
+
+**Parameters:**
+- `table` (required): Table name
 
 ### query_table
 Query records from a table with optional filtering and pagination.
@@ -127,12 +166,6 @@ Count records in a table with optional filtering.
 **Parameters:**
 - `table` (required): Table name
 - `match`: Optional filter conditions
-
-### execute_sql
-Execute raw SQL queries (advanced usage).
-
-**Parameters:**
-- `query` (required): SQL query string
 
 ## Examples
 
